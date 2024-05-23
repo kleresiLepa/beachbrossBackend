@@ -7,9 +7,9 @@ require('dotenv').config();
 const stripe_key = process.env.STRIPE_SECRET_KEY 
 const stripe = require("stripe")(stripe_key);
 
-const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN
-const twilioAccountSid = process.env.TWILIO_AUTH_TOKEN
-const client = require('twilio')(twilioAccountSid, twilioAuthToken);
+const authToken = process.env.TWILIO_AUTH_TOKEN
+const accountSid = process.env.ACCOUNT_SID
+const client = require('twilio')(accountSid, authToken);
 
 var serviceAccount = require("./serviceAccountKey.json");
 admin.initializeApp({
@@ -381,7 +381,7 @@ function sendPaymentConfirmationEmail(email, orderDetails) {
       from: 'kevinleparwa@gmail.com',
       to: email,
       subject: 'Payment Confirmation',
-      template: generateInvoiceHtml()
+      html: generateInvoiceHtml(orderDetails)
       // Add more order details as needed
   };
 
@@ -399,7 +399,7 @@ app.post('/beachbrossapi/send-email', async (req, res) =>{
   const {orderId, email, orderDetails } = req.body;
   updateOrderStatus(orderId, 'completed') // Update order status to 'completed' in Firestore
     .then(() => {
-        sendPaymentConfirmationEmail(email, orderDetails.status); // Send email confirmation
+        sendPaymentConfirmationEmail(email, orderDetails); // Send email confirmation
     })
     .catch(error => {
         console.error('Error updating order status:', error);
@@ -413,81 +413,71 @@ app.post('/beachbrossapi/send-email', async (req, res) =>{
 
 function generateInvoiceHtml(invoice) {
   return `
-    <div class="invoice-container" style="width: 80%; margin: auto; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-top: 20px;">
-        <div class="header" style="text-align: center; margin-bottom: 20px;">
-            <h1>Invoice</h1>
-            <p>Tax Invoice</p>
-        </div>
-        <div class="invoice-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div>
-                <h2>${invoice.companyName}</h2>
-                <p>${invoice.companyAddress}</p>
-            </div>
-            <div>
-                <img src="${invoice.logoUrl}" alt="Company Logo" style="max-width: 150px;">
-            </div>
-        </div>
-        <div class="invoice-details" style="margin-bottom: 20px;">
-            <table>
-                <tr>
-                    <td><strong>Bill To:</strong></td>
-                    <td>${invoice.billTo}</td>
-                </tr>
-                <tr>
-                    <td><strong>Invoice No.:</strong></td>
-                    <td>${invoice.invoiceNo}</td>
-                </tr>
-                <tr>
-                    <td><strong>Issue Date:</strong></td>
-                    <td>${invoice.issueDate}</td>
-                </tr>
-                <tr>
-                    <td><strong>Due Date:</strong></td>
-                    <td>${invoice.dueDate}</td>
-                </tr>
-                <tr>
-                    <td><strong>Reference:</strong></td>
-                    <td>${invoice.reference}</td>
-                </tr>
-                <tr>
-                    <td><strong>Payment Method:</strong></td>
-                    <td>${invoice.paymentMethod}</td>
-                </tr>
-            </table>
-        </div>
-        <div class="billing-details" style="margin-bottom: 20px;">
-            <table class="details" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <thead>
-                    <tr>
-                        <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Description</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Quantity</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Unit Price ($)</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Amount ($)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${invoice.items.map(item => `
-                    <tr>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${item.description}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${item.quantity}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${item.unitPrice}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${item.amount}</td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div class="total" style="text-align: right; margin-top: 20px;">
-            <p>Subtotal: ${invoice.subtotal.toFixed(2)}</p>
-            <p>TAX 7.75% from ${invoice.taxBase.toFixed(2)}: ${invoice.tax.toFixed(2)}</p>
-            <h2>Total (USD): ${invoice.total.toFixed(2)}</h2>
-        </div>
-        <div class="footer" style="text-align: center; margin-bottom: 20px;">
-            <p>Attention: ${invoice.attention}</p>
-            <p>${invoice.contactName} | ${invoice.contactPhone} | ${invoice.contactWebsite} | ${invoice.contactEmail}</p>
-            <p>${invoice.companyName}, ${invoice.companyAddress}</p>
-            <p>Account holder: ${invoice.accountHolder}</p>
-        </div>
-    </div>
-  `;
+  <div class="invoice-container" style="width: 80%; margin: auto; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-top: 20px;">
+      <div class="header" style="text-align: center; margin-bottom: 20px;">
+          <h1>Invoice</h1>
+          <p>Tax Invoice</p>
+      </div>
+      <div class="invoice-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div>
+              <h2>Beach Bros Sharing</h2>
+              <p>Sea Terrace, Costa Mesa CA 92627, United States</p>
+          </div>
+          <div>
+              <img src="https://firebasestorage.googleapis.com/v0/b/beachbrosshare.appspot.com/o/BEACH-BROS-LOGO-SOCAL.png?alt=media&token=dc524ea7-a520-4627-98ee-7d467dc085c8" alt="Company Logo" style="max-width: 150px;">
+          </div>
+      </div>
+      <div class="invoice-details" style="margin-bottom: 20px;">
+          <table>
+              <tr>
+                  <td><strong>Bill To:</strong></td>
+                  <td>${invoice.userDetails.email}</td>
+              </tr>
+              <tr>
+                  <td><strong>Invoice No.:</strong></td>
+                  <td>${invoice.invoice_no}</td>
+              </tr>
+              <tr>
+                  <td><strong>Pick Up Date:</strong></td>
+                  <td>${invoice.shippingDetails.pick_date}</td>
+              </tr>
+              <tr>
+                  <td><strong>Pick up Location:</strong></td>
+                  <td>${invoice.shippingDetails.pick_location}</td>
+              </tr>
+              <tr>
+                  <td><strong>Payment Method:</strong></td>
+                  <td>${invoice.userDetails.name}</td>
+              </tr>
+          </table>
+      </div>
+      <div class="billing-details" style="margin-bottom: 20px;">
+          <table class="details" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+              <thead>
+                  <tr>
+                      <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Description</th>
+                      <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Quantity</th>
+                      <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Unit Price ($)</th>
+                      <th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2;">Amount ($)</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  ${invoice.invoiceItems.map(item => `
+                  <tr>
+                      <td style="border: 1px solid #ddd; padding: 8px;">${item.price_data.product_data.name}</td>
+                      <td style="border: 1px solid #ddd; padding: 8px;">${item.quantity}</td>
+                      <td style="border: 1px solid #ddd; padding: 8px;">${item.price_data.unit_amount}</td>
+                      <td style="border: 1px solid #ddd; padding: 8px;">${item.price_data.unit_amount}</td>
+                  </tr>`).join('')}
+              </tbody>
+          </table>
+      </div>
+      <div class="total" style="text-align: right; margin-top: 20px;">
+          <p>Subtotal: ${invoice.sub_total}</p>
+          <p>TAX 7.75% from ${invoice.amount_total}: -${invoice.tax_amount}</p>
+          <h2>Total (USD): ${invoice.amount_total}</h2>
+      </div>
+  </div>
+`;
 }
 exports.app = functions.https.onRequest(app)
